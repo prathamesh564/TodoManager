@@ -8,16 +8,32 @@ export default function TodoDashboard() {
   const [profile, setProfile] = useState({ name: "Coder", tasks: [] });
   const [loading, setLoading] = useState(true);
   const [taskInput, setTaskInput] = useState("");
+  const [taskDesc, setTaskDesc] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("Coding");
+  const [priority, setPriority] = useState("Medium"); 
+  const [dueDate, setDueDate] = useState("");
   const [theme, setTheme] = useState("dark");
+  const [expandedSuggestion, setExpandedSuggestion] = useState(null);
   const router = useRouter();
 
   const API_BASE = "http://localhost:5000";
+
+  const categories = ["Coding", "Meeting", "Design", "Research", "Health", "Finances"];
+
+  const suggestions = [
+    { title: "Review Project Docs", cat: "Research", desc: "Analyze project requirements and documentation." },
+    { title: "Database Cleanup", cat: "Coding", desc: "Optimize queries and remove redundant entries." },
+    { title: "Team Sync", cat: "Meeting", desc: "Align with the team on blockers and progress." },
+    { title: "Design UI", cat: "Design", desc: "Wireframe new dashboard components." },
+    { title: "Budgeting", cat: "Finances", desc: "Review project costs and allocations." },
+    { title: "Yoga", cat: "Health", desc: "15-minute session for physical wellness." }
+  ];
 
   const fetchTasks = useCallback(async (uid) => {
     try {
       const res = await fetch(`${API_BASE}/tasks/${uid}`);
       const data = await res.json();
-      setProfile(prev => ({ ...prev, tasks: data }));
+      setProfile(prev => ({ ...prev, tasks: Array.isArray(data) ? data : [] }));
     } catch (err) {
       console.error("Fetch error:", err);
     } finally {
@@ -40,25 +56,51 @@ export default function TodoDashboard() {
     return () => unsubscribeAuth();
   }, [router, fetchTasks]);
 
-  const addTask = async () => {
-    if (!taskInput.trim() || !auth.currentUser) return;
+  const addTask = async (manualTitle = null, manualDesc = null, manualCat = null, manualPriority = null) => {
+    if (!auth.currentUser) return;
     
+    const finalTitle = manualTitle || taskInput.trim();
+    const finalDesc = manualDesc || taskDesc.trim();
+    const finalCat = manualCat || selectedCategory;
+    const finalPriority = manualPriority || priority;
+
+    if (!finalTitle) return;
+
     const taskData = {
-      title: taskInput.trim(),
+      title: finalTitle,
+      description: finalDesc,
       userId: auth.currentUser.uid,
-      status: "Pending"
+      category: finalCat,
+      priority: finalPriority, 
+      dueDate: dueDate,
+      status: "Pending",
+      createdAt: new Date().toISOString() 
     };
 
     try {
-      await fetch(`${API_BASE}/tasks`, {
+      const res = await fetch(`${API_BASE}/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(taskData)
       });
-      setTaskInput("");
-      fetchTasks(auth.currentUser.uid);
+      if (res.ok) {
+        setTaskInput("");
+        setTaskDesc("");
+        setDueDate(""); 
+        setPriority("Medium"); 
+        fetchTasks(auth.currentUser.uid);
+      }
     } catch (err) {
       console.error("Add error:", err);
+    }
+  };
+
+  const handleSuggestionClick = (sug) => {
+    if (expandedSuggestion === sug.title) {
+      addTask(sug.title, sug.desc, sug.cat, "High"); 
+      setExpandedSuggestion(null);
+    } else {
+      setExpandedSuggestion(sug.title);
     }
   };
 
@@ -71,6 +113,11 @@ export default function TodoDashboard() {
     }
   };
 
+  const activeTasks = profile.tasks.filter(t => t.status === "Pending");
+  const completedTasks = profile.tasks.filter(t => t.status === "Completed");
+  const totalTasksCount = profile.tasks.length;
+  const efficiency = totalTasksCount ? Math.round((completedTasks.length / totalTasksCount) * 100) : 0;
+
   const themeClasses = {
     bg: theme === "dark" ? "bg-[#020617] text-slate-200" : "bg-gray-50 text-slate-900",
     card: theme === "dark" ? "bg-slate-900/40 border-slate-800" : "bg-white border-gray-200 shadow-sm",
@@ -79,9 +126,6 @@ export default function TodoDashboard() {
     headerText: theme === "dark" ? "text-white" : "text-gray-900",
     mutedText: theme === "dark" ? "text-slate-400" : "text-gray-500",
   };
-
-  const activeTasks = profile.tasks.filter(t => t.status === "Pending");
-  const completedTasks = profile.tasks.filter(t => t.status === "Completed");
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-[#020617]">
@@ -98,71 +142,173 @@ export default function TodoDashboard() {
             <NavLink href="/dashboard" active theme={theme}>Dashboard</NavLink>
             <NavLink href="/tasks" theme={theme}>Task List</NavLink>
             <NavLink href="/history" theme={theme}>History</NavLink>
+            <NavLink href="/reviews" theme={theme}>Reviews</NavLink>
+            <NavLink href="/ProductivityDashboard" theme={theme}>Productivity Dashboard</NavLink>
+            <NavLink href="/flow" theme={theme}>Flow</NavLink>
+            <NavLink href="/profile" theme={theme}>Profile</NavLink>
           </nav>
         </aside>
 
-        <main className="flex-1 p-6 md:p-10 max-w-6xl mx-auto w-full">
-          <header className="flex justify-between items-start mb-10">
+        <main className="flex-1 p-6 md:p-10 max-w-7xl mx-auto w-full space-y-8">
+          <header className="flex justify-between items-center">
             <div>
               <h1 className={`text-4xl font-extrabold tracking-tight ${themeClasses.headerText}`}>
                 Focus, {profile.name.split(" ")[0]}! 🎯
               </h1>
-              <p className={`mt-2 ${themeClasses.mutedText}`}>{activeTasks.length} missions remaining.</p>
             </div>
-            <button 
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")} 
-              className={`p-3 rounded-xl border transition-all hover:scale-110 ${themeClasses.card}`}
-            >
+            <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className={`p-3 rounded-xl border transition-all hover:scale-110 ${themeClasses.card}`}>
               {theme === "dark" ? "☀️" : "🌙"}
             </button>
           </header>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-            <div className={`lg:col-span-2 border p-6 rounded-2xl bg-gradient-to-br from-indigo-500/5 to-transparent ${themeClasses.card} border-indigo-500/30`}>
-              <h3 className={`text-lg font-bold mb-4 ${themeClasses.headerText}`}>Quick Add</h3>
-              <div className="flex gap-3">
-                <input 
-                  value={taskInput}
-                  onChange={(e) => setTaskInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addTask()}
-                  placeholder="Deploy new task..."
-                  className={`flex-1 rounded-xl px-4 py-3 outline-none border transition-all ${themeClasses.input}`}
-                />
-                <button onClick={addTask} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
-                  Add
-                </button>
-              </div>
+          {/* NEW: TOP PROGRESS BAR SECTION */}
+          <section className={`p-6 rounded-[2rem] border ${themeClasses.card}`}>
+            <div className="flex justify-between items-end mb-4">
+               <div>
+                  <p className={`text-xs font-bold uppercase tracking-widest text-indigo-500`}>Performance Matrix</p>
+                  <h3 className={`text-2xl font-black ${themeClasses.headerText}`}>Efficiency: {efficiency}%</h3>
+               </div>
+               <div className="text-right">
+                  <p className={`text-xs font-medium ${themeClasses.mutedText}`}>
+                    <span className="text-emerald-500 font-bold">{completedTasks.length} Done</span> / {totalTasksCount} Total
+                  </p>
+               </div>
             </div>
-            <StatCard title="Efficiency" value={`${calculateRate(profile.tasks)}%`} icon="📈" color="indigo" themeClasses={themeClasses} />
-          </div>
+            <div className="w-full h-4 bg-slate-800 rounded-full overflow-hidden flex">
+               <div 
+                 className="h-full bg-indigo-500 transition-all duration-1000 ease-out" 
+                 style={{ width: `${efficiency}%` }}
+               />
+               <div 
+                 className="h-full bg-amber-500/50 transition-all duration-1000 ease-out" 
+                 style={{ width: `${totalTasksCount ? (activeTasks.length / totalTasksCount) * 100 : 0}%` }}
+               />
+            </div>
+            <div className="flex gap-6 mt-4">
+               <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+                  <span className="text-xs font-bold">Completed</span>
+               </div>
+               <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-amber-500/50"></div>
+                  <span className="text-xs font-bold">Pending</span>
+               </div>
+            </div>
+          </section>
+
+          {/* MISSION SUGGESTIONS */}
+          <section className="space-y-4">
+            <h3 className={`text-sm font-bold uppercase tracking-widest text-indigo-500`}>Mission Suggestions</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              {suggestions.map((sug) => (
+                <button
+                  key={sug.title}
+                  onClick={() => handleSuggestionClick(sug)}
+                  className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden ${
+                    expandedSuggestion === sug.title 
+                    ? "border-indigo-500 bg-indigo-500/10 ring-2 ring-indigo-500/20 shadow-lg" 
+                    : themeClasses.card + " hover:border-slate-600"
+                  }`}
+                >
+                  <p className="text-[10px] font-bold text-indigo-400 uppercase mb-1">{sug.cat}</p>
+                  <p className={`text-xs font-bold ${themeClasses.headerText}`}>{sug.title}</p>
+                  {expandedSuggestion === sug.title && (
+                    <div className="mt-2 text-[10px] leading-tight text-slate-400 animate-in fade-in slide-in-from-top-1 duration-300">
+                      {sug.desc}
+                      <p className="mt-2 text-indigo-500 font-black">DEPLOY AS HIGH PRIORITY</p>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className={`lg:col-span-2 border rounded-2xl p-6 ${themeClasses.card}`}>
-              <h3 className={`text-xl font-bold mb-6 ${themeClasses.headerText}`}>Current Tasks</h3>
-              <div className="space-y-3">
-                {activeTasks.length > 0 ? activeTasks.map(task => (
-                  <TaskItem key={task._id} task={task} onToggle={() => toggleTaskStatus(task._id)} themeClasses={themeClasses} />
-                )) : (
-                  <p className={`text-center py-10 ${themeClasses.mutedText}`}>No pending missions. Great job!</p>
-                )}
+            <div className="lg:col-span-2 space-y-6">
+              <div className={`border p-8 rounded-[2.5rem] ${themeClasses.card} border-indigo-500/30 bg-gradient-to-br from-indigo-500/10 to-transparent`}>
+                <h3 className={`text-xs font-bold text-indigo-500 uppercase tracking-widest mb-4`}>Quick Deployment</h3>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                        selectedCategory === cat 
+                        ? "bg-indigo-600 border-indigo-500 text-white shadow-lg" 
+                        : theme === "dark" 
+                          ? "bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-600"
+                          : "bg-gray-100 border-gray-200 text-gray-500 hover:border-gray-300"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-3">
+                  <input 
+                    value={taskInput}
+                    onChange={(e) => setTaskInput(e.target.value)}
+                    placeholder={`Define mission title...`}
+                    className={`w-full rounded-xl px-4 py-3 outline-none border transition-all ${themeClasses.input}`}
+                  />
+                  <textarea 
+                    value={taskDesc}
+                    onChange={(e) => setTaskDesc(e.target.value)}
+                    placeholder="Enter task description here..."
+                    rows={2}
+                    className={`w-full rounded-xl px-4 py-3 outline-none border transition-all resize-none ${themeClasses.input}`}
+                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Priority Level</label>
+                      <select 
+                        value={priority}
+                        onChange={(e) => setPriority(e.target.value)}
+                        className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border transition-all cursor-pointer ${themeClasses.input}`}
+                      >
+                        <option value="Low">Low Priority</option>
+                        <option value="Medium">Medium Priority</option>
+                        <option value="High">High Priority 🔥</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase px-1">Deadline</label>
+                      <input 
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border transition-all ${themeClasses.input}`}
+                      />
+                    </div>
+                  </div>
+                  <button onClick={() => addTask()} className="w-full py-4 mt-2 bg-indigo-600 text-white rounded-xl font-bold shadow-lg active:scale-95 transition-all">
+                    Deploy Task
+                  </button>
+                </div>
+              </div>
+
+              {/* CURRENT SPRINT */}
+              <div className={`border rounded-[2rem] p-6 ${themeClasses.card}`}>
+                <h3 className={`text-xl font-bold mb-6 ${themeClasses.headerText}`}>Current Sprint</h3>
+                <div className="space-y-3">
+                  {activeTasks.length > 0 ? activeTasks.map(task => (
+                    <TaskItem key={task._id} task={task} onToggle={() => toggleTaskStatus(task._id)} themeClasses={themeClasses} />
+                  )) : (
+                    <div className={`text-center py-10 ${themeClasses.mutedText}`}>
+                      <p className="text-2xl mb-2">🚀</p>
+                      <p>Sprint is empty. Start a suggestion above.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             
-            <div className={`border rounded-2xl p-6 h-fit ${themeClasses.card}`}>
+            <div className={`border rounded-[2.5rem] p-8 h-fit ${themeClasses.card}`}>
               <h3 className={`text-xl font-bold mb-6 ${themeClasses.headerText}`}>Summary</h3>
               <div className="space-y-4">
-                <SummaryRow label="Total" val={profile.tasks.length} color={themeClasses.headerText} />
-                <SummaryRow label="Completed" val={completedTasks.length} color="text-emerald-500" />
-                <hr className={theme === "dark" ? "border-slate-800" : "border-gray-100"} />
-                <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500">Recent Logs</h4>
-                <div className="space-y-2">
-                  {completedTasks.slice(-3).reverse().map(t => (
-                    <div key={t._id} className="text-sm text-slate-400 flex items-center gap-2">
-                      <span className="text-emerald-500">✓</span> 
-                      <span className="truncate">{t.title}</span>
-                    </div>
-                  ))}
-                </div>
+                <SummaryRow label="Total Scope" val={totalTasksCount} color={themeClasses.headerText} />
+                <SummaryRow label="Missions Completed" val={completedTasks.length} color="text-emerald-500" />
+                <SummaryRow label="Open Vulnerabilities" val={activeTasks.length} color="text-amber-500" />
               </div>
             </div>
           </div>
@@ -172,21 +318,33 @@ export default function TodoDashboard() {
   );
 }
 
-// --- HELPER COMPONENTS (Place these outside the main function) ---
-
 function TaskItem({ task, onToggle, themeClasses }) {
+  const priorityColors = {
+    High: "text-red-500 border-red-500/20 bg-red-500/5",
+    Medium: "text-amber-500 border-amber-500/20 bg-amber-500/5",
+    Low: "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
+  };
+
   return (
     <div className={`flex items-center justify-between p-4 rounded-xl border transition-all hover:translate-x-1 border-transparent hover:border-indigo-500/30 ${themeClasses.sidebar}`}>
       <div className="flex items-center gap-4">
-        <button 
-          onClick={onToggle}
-          className={`w-6 h-6 border-2 border-indigo-500 rounded-lg transition-all flex items-center justify-center ${task.status === 'Completed' ? 'bg-indigo-500' : 'hover:bg-indigo-500/20'}`}
-        >
-            {task.status === 'Completed' && <span className="text-white text-xs">✓</span>}
+        <button onClick={onToggle} className={`w-6 h-6 border-2 border-indigo-500 rounded-lg transition-all flex items-center justify-center ${task.status === 'Completed' ? 'bg-indigo-500' : 'hover:bg-indigo-500/20'}`}>
+            {task.status === 'Completed' && <span className="text-white text-xs font-bold">✓</span>}
         </button>
-        <span className={`font-medium ${themeClasses.headerText}`}>
-          {task.title}
-        </span>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2 mb-0.5">
+             <span className={`text-[8px] px-1.5 py-0.5 rounded border font-black uppercase tracking-tighter ${priorityColors[task.priority] || "text-slate-500 border-slate-800"}`}>
+              {task.priority || "Medium"}
+            </span>
+            <span className={`text-[10px] font-bold text-indigo-500 uppercase`}>{task.category || "General"}</span>
+          </div>
+          <span className={`font-medium ${themeClasses.headerText}`}>{task.title}</span>
+          {task.dueDate && (
+            <span className="text-[10px] text-slate-500 mt-1">
+              Due: {new Date(task.dueDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -194,30 +352,9 @@ function TaskItem({ task, onToggle, themeClasses }) {
 
 function NavLink({ href, children, active = false, theme }) {
   const activeClass = "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20";
-  const inactiveClass = theme === "dark" 
-    ? "text-slate-400 hover:bg-slate-800/50 hover:text-white" 
-    : "text-gray-500 hover:bg-gray-100 hover:text-gray-900";
-
+  const inactiveClass = theme === "dark" ? "text-slate-400 hover:bg-slate-800/50 hover:text-white" : "text-gray-500 hover:bg-gray-100 hover:text-gray-900";
   return (
-    <Link href={href} className={`block px-4 py-2.5 rounded-xl transition-all font-semibold ${active ? activeClass : inactiveClass}`}>
-      {children}
-    </Link>
-  );
-}
-
-function StatCard({ title, value, icon, color, themeClasses }) {
-  const colors = {
-    indigo: "text-indigo-500 bg-indigo-500/10",
-    emerald: "text-emerald-500 bg-emerald-500/10",
-  };
-  return (
-    <div className={`border p-6 rounded-2xl flex items-center gap-5 ${themeClasses.card}`}>
-      <div className={`text-3xl p-4 rounded-2xl ${colors[color] || colors.indigo}`}>{icon}</div>
-      <div>
-        <p className={`text-xs font-bold uppercase tracking-widest ${themeClasses.mutedText}`}>{title}</p>
-        <p className={`text-3xl font-black mt-1 ${themeClasses.headerText}`}>{value}</p>
-      </div>
-    </div>
+    <Link href={href} className={`block px-4 py-2.5 rounded-xl transition-all font-semibold ${active ? activeClass : inactiveClass}`}>{children}</Link>
   );
 }
 
@@ -228,9 +365,4 @@ function SummaryRow({ label, val, color }) {
       <span className={`font-bold ${color}`}>{val}</span>
     </div>
   );
-}
-
-function calculateRate(tasks) {
-  if (!tasks || !tasks.length) return 0;
-  return Math.round((tasks.filter(t => t.status === "Completed").length / tasks.length) * 100);
 }
