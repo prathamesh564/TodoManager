@@ -2,21 +2,22 @@
 
 A full-stack Todo Management Application that helps users create, organize, and track daily tasks efficiently.
 
-The application uses **Firebase Authentication** for secure user login and **MongoDB** for storing users and task data.
+The application uses **Firebase Authentication** for secure user login and **MongoDB Atlas** for storing user and task data.
 
 ---
 
 ## 📌 Features
 
-- 🔐 User authentication using Firebase
+- 🔐 Firebase Authentication Login/Register
+- 👤 User profile management
 - ✅ Create new tasks
 - 📝 Update existing tasks
 - 🗑️ Delete tasks
-- 📋 View all tasks
+- 📋 View user-specific tasks
 - ✔️ Task status management
-- 👤 User profile management
-- ☁️ Cloud database storage
-- ⚡ Responsive interface
+- ☁️ MongoDB cloud storage
+- 🔗 Frontend and Backend API integration
+- ⚡ Responsive Next.js interface
 
 ---
 
@@ -27,6 +28,7 @@ The application uses **Firebase Authentication** for secure user login and **Mon
 - React.js
 - TypeScript
 - CSS
+- Firebase SDK
 
 ### Backend
 - Node.js
@@ -38,6 +40,7 @@ The application uses **Firebase Authentication** for secure user login and **Mon
 ### Database
 - MongoDB
 - MongoDB Atlas
+- Mongoose
 
 ---
 
@@ -48,36 +51,43 @@ TodoManager/
 │
 ├── frontend/
 │   │
-│   └── app/
-│       ├── Landing-page/
-│       ├── ProductivityDashboard/
-│       ├── dashboard/
-│       ├── login/
-│       ├── profile/
-│       ├── tasks/
-│       ├── history/
-│       ├── reviews/
-│       ├── globals.css
-│       └── layout.tsx
+│   ├── app/
+│   │   ├── Landing-page/
+│   │   ├── ProductivityDashboard/
+│   │   ├── dashboard/
+│   │   ├── login/
+│   │   ├── profile/
+│   │   ├── tasks/
+│   │   ├── history/
+│   │   ├── reviews/
+│   │   ├── firebase/
+│   │   │   └── config.js
+│   │   ├── globals.css
+│   │   └── layout.tsx
+│   │
+│   ├── .env.local
+│   └── package.json
 │
 ├── backend/
 │   │
-│   ├── server.js
-│   ├── package.json
+│   ├── models/
+│   │   ├── User.js
+│   │   └── Task.js
+│   │
 │   ├── routes/
 │   ├── controllers/
-│   ├── models/
+│   ├── server.js
 │   ├── .env
-│   └── .gitignore
+│   └── package.json
 │
 └── README.md
 ```
 
 ---
 
-## ⚙️ Installation
+# ⚙️ Installation
 
-### Clone Repository
+## Clone Repository
 
 ```bash
 git clone https://github.com/prathamesh564/TodoManager.git
@@ -91,6 +101,8 @@ cd TodoManager
 
 # Frontend Setup
 
+Navigate:
+
 ```bash
 cd frontend
 ```
@@ -101,7 +113,13 @@ Install dependencies:
 npm install
 ```
 
-Run:
+Install Firebase:
+
+```bash
+npm install firebase
+```
+
+Run frontend:
 
 ```bash
 npm run dev
@@ -123,13 +141,19 @@ Open another terminal:
 cd backend
 ```
 
-Install dependencies:
+Install packages:
 
 ```bash
 npm install
 ```
 
-Start server:
+Install MongoDB packages:
+
+```bash
+npm install mongoose dotenv cors
+```
+
+Run backend:
 
 ```bash
 node server.js
@@ -143,86 +167,114 @@ http://localhost:5000
 
 ---
 
-## 🔐 Environment Variables
+# 🔐 Environment Variables
 
-Create `.env` file inside backend:
+## Frontend `.env.local`
+
+Create inside:
 
 ```
+frontend/.env.local
+```
+
+Add:
+
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+```
+
+---
+
+## Backend `.env`
+
+Create:
+
+```
+backend/.env
+```
+
+Add:
+
+```env
 PORT=5000
 
-MONGO_URI=your_mongodb_connection_string
-
-FIREBASE_API_KEY=your_api_key
-FIREBASE_AUTH_DOMAIN=your_auth_domain
-FIREBASE_PROJECT_ID=your_project_id
+MONGO_URI=your_mongodb_atlas_connection_string
 ```
 
 ---
 
-## 🗄️ Database Design
+# 🔥 Authentication Flow
 
-### Users Collection
-
-```json
-{
-  "_id": "ObjectId",
-  "firebaseUid": "user_id",
-  "name": "User Name",
-  "email": "user@gmail.com"
-}
-```
-
-### Tasks Collection
-
-```json
-{
-  "_id": "ObjectId",
-  "userId": "firebaseUid",
-  "title": "Complete Project",
-  "description": "Finish TodoManager",
-  "status": "pending",
-  "createdAt": "date"
-}
-```
-
----
-
-## 🔥 Authentication Flow
-
-1. User registers/logs in using Firebase
+1. User registers/login using Firebase Authentication
 2. Firebase verifies user identity
-3. User UID is stored in MongoDB
-4. Tasks are linked with authenticated user
-5. User can manage personal tasks
+3. Firebase UID is generated
+4. User details are stored in MongoDB
+5. Tasks are linked with Firebase UID
+6. Users can access only their own tasks
 
 ---
 
-## 🚀 Future Improvements
+# 🗄️ Database Structure
 
-- Google login
+## Users Collection
+
+```json
+{
+ "_id": "ObjectId",
+ "firebaseUid": "firebase_user_id",
+ "name": "User Name",
+ "email": "user@gmail.com"
+}
+```
+
+## Tasks Collection
+
+```json
+{
+ "_id": "ObjectId",
+ "userId": "firebaseUid",
+ "title": "Complete Project",
+ "description": "Finish TodoManager",
+ "status": "pending",
+ "createdAt": "date"
+}
+```
+
+---
+
+# 🚀 Future Improvements
+
+- Google Authentication
 - Task reminders
 - Priority levels
 - Due dates
 - Dark mode
-- Cloud deployment
 - Mobile application
+- Deployment with cloud services
 
 ---
 
-## 👨‍💻 Authors
+# 👨‍💻 Authors
 
-### Prathamesh V Shenoy
-GitHub:  
+## Prathamesh V Shenoy
+
+GitHub:
 https://github.com/prathamesh564
 
 
-### Sohan P Rai
-GitHub:  
+## Sohan P Rai
+
+GitHub:
 https://github.com/SohanPRai
 
 
 ---
 
-## 📄 License
+# 📄 License
 
-This project is open-source and available under the MIT License.
+This project is open-source and available under MIT License.
